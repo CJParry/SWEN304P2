@@ -4,6 +4,8 @@
  * Created on March 6, 2003, 2:52 PM with netbeans
  *
  * Updated on March 25 2005 by Jerome Dolman
+ *
+ * Should not need to modify
  */
 
 import java.awt.*;

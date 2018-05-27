@@ -7,17 +7,53 @@
 
 
 import javax.swing.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
 
 public class LibraryModel {
-
+Connection con;
+Statement stmt;
+    ResultSet rs;
     // For use in creating dialogs and making them modal
     private JFrame dialogParent;
 
+
+    //should i open new connection every query or??
+
     public LibraryModel(JFrame parent, String userid, String password) {
         dialogParent = parent;
+
+        try {
+            Class.forName("org.postgresql.Driver");
+
+            String url = "jdbc:postgresql:" + "//db.ecs.vuw.ac.nz/" + "parrychri1" + "_jdbc";
+             con= DriverManager.getConnection(
+                    "jdbc:postgresql://db.ecs.vuw.ac.nz/parrychri1_jdbc","parrychri1","dbpassword");
+
+             stmt=con.createStatement();
+
+            //con.close();
+        }catch(Exception e){ System.out.println(e);}
     }
 
+
+
+
     public String bookLookup(int isbn) {
+        try {
+            stmt = con.createStatement();
+            rs = stmt.executeQuery("select * from book where isbn = " + isbn);
+            while (rs.next())
+                System.out.println(rs.getInt(1) + "  " + rs.getString(2) + "  " + rs.getString(3));
+
+        }catch(Exception e){
+            System.out.println("Error in showAuthor");
+            System.out.println(e.toString());
+        }
+
         return "Lookup Book Stub";
     }
 
@@ -30,6 +66,15 @@ public class LibraryModel {
     }
 
     public String showAuthor(int authorID) {
+      try {
+          stmt = con.createStatement();
+          rs = stmt.executeQuery("select * from author where authorid = " + authorID);
+          while (rs.next())
+              System.out.println(rs.getInt(1) + "  " + rs.getString(2) + "  " + rs.getString(3));
+      }catch(Exception e){
+          System.out.println("Error in showAuthor");
+          System.out.println(e.toString());
+      }
         return "Show Author Stub";
     }
 
