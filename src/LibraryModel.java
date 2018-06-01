@@ -43,14 +43,24 @@ public class LibraryModel {
 
 
     public String bookLookup(int isbn) {
-        String s = "";
+        String s = "Book Lookup:\n";
+        String authors = "";
+        String title = "";
+        int edition_Num = -1;
+        int numOfCopy = -1;
+        int numLeft = -1;
         try {
             stmt = con.createStatement();
-            rs = stmt.executeQuery("SELECT name, surname FROM book_author NATURAL JOIN author WHERE isbn =  " + isbn + " ORDER BY authorseqno;");
-            s+= "Name           Surname\n";
-            s+= "=========================================\n";
-            while (rs.next())
-                s+= (rs.getString(1) + "  " + rs.getString(2) + "\n");
+            rs = stmt.executeQuery("SELECT title, edition_no, numOfCop, numLeft, surname FROM book_author NATURAL JOIN author NATURAL JOIN book WHERE isbn =  " + isbn + " ORDER BY authorseqno;");
+            while (rs.next()) {
+                title = rs.getString(1);
+                edition_Num = rs.getInt(2);
+                numOfCopy = rs.getInt(3);
+                numLeft = rs.getInt(4);
+                authors += "," + rs.getString(5);
+            }
+
+            s += isbn + ": " + title + "\nEdition: " + edition_Num + " - Number of copies: " + numOfCopy + " - Copies left: " + numLeft + "\nAuthors: " + authors;
 
         }catch(Exception e){
             System.out.println("Error in showAuthor");
