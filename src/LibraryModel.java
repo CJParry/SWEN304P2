@@ -109,7 +109,7 @@ public class LibraryModel {
         String edition = "Edition: ";
         int numOfCopy = -1;
         int numLeft = -1;
-        String borrowers = "Borrowwes:\n    ";
+        String borrowers = "Borrowers:\n    ";
         String author = "Author: ";
         String city = "";
 
@@ -260,75 +260,197 @@ public class LibraryModel {
     }
 
     public String borrowBook(int isbn, int customerID,
-                             int day, int month, int year) {
-        String date = year + "-" + month + "-" + day;
-        try {
-            stmt = con.createStatement();
-            rs = stmt.executeQuery("INSERT INTO cust_book VALUES(" + isbn + ", '" + date + "'," + customerID + ");" );
-        }catch(Exception e){
-            System.out.println("Error in borrowBook");
-            System.out.println(e.toString());
-        }
-        return "Borrowed Book Stub";
-    }
-
-    public String returnBook(int isbn, int customerid) {
-        return "Return Book Stub";
-    }
-
-    public void closeDBConnection() {
-        try{
-            con.close();
-        }
-        catch(Exception e) {
-            System.out.println("Error in closeDBConnection");
-            System.out.println(e.toString());
-        }
-    }
-
-    /**
-     *  WORKING - deletes customer tuple if they have no books loaned
-     * @param customerID
-     * @return
-     */
-    public String deleteCus(int customerID) {
+                             int day, int month, int year) throws SQLException {
+        //con.commit();
+        //con.rollback();
+        //con.setAutoCommit(false);
+        int numOfCop = 0;
+        int numLeft = 0;
         String s = "";
-        try {
-            PreparedStatement st = con.prepareStatement("DELETE FROM customer WHERE customerId = " + customerID + ";");
-            int i = st.executeUpdate();
-            if(i == 0){
-                s = "No customer to delete";
-            }else {
-                s = "Deleted customer " + customerID;
+        try{
+            con.prepareStatement("BEGIN WORK;");
+
+
+            String customer = showCustomer(customerID);
+            if (customer.contains("No such")) {
+                return customer;
+            } else {
+                con.prepareStatement("LOCK TABLE customer IN SHARE MODE;");
+
             }
-        }catch(Exception e){
-            s = " Cannot delete customer " + customerID + " as they still have books borrowed on their account";
-            System.out.println("Error in deleteCus");
-            System.out.println(e.toString());
-        }
-        return s;
-    }
+            String book = bookLookup(isbn);
+            if (book.contains("No such ISBN:")) {
+                s = book;
+            } else {
+                con.prepareStatement("LOCK TABLE book IN SHARE MODE;");
+                con.prepareStatement("LOCK TABLE cust_book IN SHARE MODE;")
 
-    public String deleteAuthor(int authorID) {
-        try {
-            stmt = con.createStatement();
-            rs = stmt.executeQuery("DELETE FROM author WHERE authorId = " + authorID + ";");
-        }catch(Exception e){
-            System.out.println("Error in deleteAuthor");
-            System.out.println(e.toString());
-        }
-        return "Deleted Author " + authorID;
-    }
+                String date = year + "-" + month + "-" + day;
+                rs = stmt.executeQuery("INSERT INTO cust_book VALUES(" + isbn + ", '" + date + "'," + customerID + ");");
+                //find numOfCopyLeft
 
-    public String deleteBook(int isbn) {
-        try {
-            stmt = con.createStatement();
-            rs = stmt.executeQuery("DELETE FROM book WHERE isbn = " + isbn + ";");
-        }catch(Exception e){
-            System.out.println("Error in deleteBook");
-            System.out.println(e.toString());
+                rs = stmt.executeQuery("SELECT numOfCop, numLeft FROM book WHERE isbn = " + isbn + ";");
+                while (rs.next()) {
+                    numOfCop = rs.getInt(1);
+                    numLeft = rs.getInt(2) - 1;
+                    if (numLeft <= 0) {
+                        System.out.println("No copies to lend");
+                        con.rollback();
+                    }
+                }
+                stmt.executeUpdate("UPDATE book SET numLeft = " + numLeft + " WHERE isbn = " + isbn + ";");
+                con.prepareStatement("COMMIT WORK;");
+
+                con.commit();
+
+            }
+        } catch (SQLException e) {
+            con.rollback();
+            e.printStackTrace();
+        }
+return s;
+    }
+    public String returnBook(int isbn, int customerid) {
+        con.prepareStatement("BEGIN;");
+        rs = stmt.executeQuery("SELECT * FROM cust_book WHERE isbn = " + isbn + " AND customerId = " + customerid + ";");
+        if (!rs.isBeforeFirst() ) {
+        return "No book to return";
         }
 
-        return "Deleted Book " + isbn;
+        con.prepareStatement("LOCK TABLE book IN SHARE MODE;");
+        con.prepareStatement("LOCK TABLE customer IN SHARE MODE;")
+        con.prepareStatement("LOCK TABLE cust_book IN SHARE ROW EXCLUSIVE MODE;")
+
+        int numOfCop = 0;
+        int numLeft = 0;
+        String s = "";
+
+        rs = stmt.executeQuery("SELECT numOfCop, numLeft FROM book WHERE isbn = " + isbn + ";");
+        while (rs.next()) {
+            numOfCop = rs.getInt(1);
+            numLeft = rs.getInt(2) + 1;
+            if (numOfCop <= 0) {
+                System.out.println("No copies to return");
+                con.rollback();
+            }
+        }
+        con.prepareStatement("UPDATE book SET numLeft = " + numLeft + " WHERE isbn = " + isbn + ";");
+        con.prepareStatement("DELETE cust_book WHERE isbn = " + isbn + " AND customerId = " + customerid + ";");
+        con.commit();
+
+//check cust_book tuple exist
+        //          update numleft in book
+        //         delete cust_book tuple
+        //con.commit();
+        //con.rollback();
+        //con.setAutoCommit(false);
+
+
+
+            String customer = showCustomer(customerID);
+            if (customer.contains("No such")) {
+                s = customer;
+            } else {
+                String book = bookLookup(isbn);
+                if (book.contains("No such ISBN:")) {
+                    s = book;
+                } else {
+                    try {
+                        con.setAutoCommit(false);
+
+                        String date = year + "-" + month + "-" + day;
+                        rs = stmt.executeQuery("INSERT INTO cust_book VALUES(" + isbn + ", '" + date + "'," + customerID + ");");
+                        //find numOfCopyLeft
+
+                        rs = stmt.executeQuery("SELECT numOfCop, numLeft FROM book WHERE isbn = " + isbn + ";");
+                        while (rs.next()) {
+                            numOfCop = rs.getInt(1);
+                            numLeft = rs.getInt(2) -1;
+                            if (numLeft <= 0) {
+                                System.out.println("No copies to lend");
+                                con.rollback();
+                            }
+                        }
+                        stmt.executeUpdate("UPDATE book SET numLeft = " + numLeft + " WHERE isbn = " + isbn + ";");
+                        con.commit();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+
+                    return "Borrowed Book Stub";
+                }
+            }
+
+
+
+
+            return "Return Book Stub";
+        }
+
+        public void closeDBConnection() {
+            try{
+                con.close();
+            }
+            catch(Exception e) {
+                System.out.println("Error in closeDBConnection");
+                System.out.println(e.toString());
+            }
+        }
+
+        /**
+         *  WORKING - deletes customer tuple if they have no books loaned
+         * @param customerID
+         * @return
+         */
+        public String deleteCus(int customerID) {
+            String s = "";
+            try {
+                PreparedStatement st = con.prepareStatement("DELETE FROM customer WHERE customerId = " + customerID + ";");
+                int i = st.executeUpdate();
+                if(i == 0){
+                    s = "No customer to delete";
+                }else {
+                    s = "Deleted customer " + customerID;
+                }
+            }catch(Exception e){
+                s = " Cannot delete customer " + customerID + " as they still have books borrowed on their account";
+                System.out.println("Error in deleteCus");
+                System.out.println(e.toString());
+            }
+            return s;
+        }
+
+        public String deleteAuthor(int authorID) {
+            try {
+                stmt = con.createStatement();
+                rs = stmt.executeQuery("DELETE FROM author WHERE authorId = " + authorID + ";");
+            }catch(Exception e){
+                System.out.println("Error in deleteAuthor");
+                System.out.println(e.toString());
+            }
+            return "Deleted Author " + authorID;
+        }
+
+        /**
+         *  WORKING - deletes book tuple if there are none on loan. Needs to check book_author constraint
+         * @param isbn
+         * @return
+         */
+        public String deleteBook(int isbn) {
+            String s = "";
+            try {
+                PreparedStatement st = con.prepareStatement("DELETE FROM book WHERE isbn = " + isbn + ";");
+                int i = st.executeUpdate();
+                if(i == 0){
+                    s = "No book to delete";
+                }else {
+                    s = "Deleted book " + isbn;
+                }
+            }catch(Exception e){
+                s = " Cannot delete book " + isbn + " as there are copies out on loan";
+                System.out.println("Error in deleteBook");
+                System.out.println(e.toString());
+            }
+            return s;
+        }
     }
-}
